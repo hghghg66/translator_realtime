@@ -4,7 +4,8 @@
 
 const { invoke } = window.__TAURI__.core;
 
-// Default settings shape
+// Default settings shape — must mirror Rust `Settings` struct in
+// `src-tauri/src/settings.rs`. Keep the two in sync when adding fields.
 const DEFAULT_SETTINGS = {
   soniox_api_key: '',
   source_language: 'auto',
@@ -24,6 +25,30 @@ const DEFAULT_SETTINGS = {
   edge_tts_voice: 'vi-VN-HoaiMyNeural',
   edge_tts_speed: 50,
   tts_auto_read: true,
+  google_tts_api_key: '',
+  google_tts_voice: 'vi-VN-Chirp3-HD-Aoede',
+  google_tts_speed: 1.0,
+
+  // Interview Mode
+  interview_enabled: false,
+  interview_mode: 'api',
+  interview_cv_context: '',
+  interview_role_context: '',
+  interview_answer_language: '',
+  interview_min_question_chars: 8,
+  interview_debounce_ms: 1500,
+  interview_trigger_source: 'original',
+  interview_api_preset: 'openai',
+  interview_api_base_url: 'https://api.openai.com/v1',
+  interview_api_key: '',
+  interview_api_auth_style: 'bearer',
+  interview_api_model: 'gpt-4o-mini',
+  interview_api_schema: 'openai',
+  interview_webview_provider: 'chatgpt',
+  interview_webview_signed_in: false,
+  interview_chat_strategy: 'system_prompt',
+  interview_webview_visibility: 'always_hidden',
+  interview_webview_tos_accepted: false,
 };
 
 class SettingsManager {

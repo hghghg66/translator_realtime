@@ -64,6 +64,52 @@ pub struct Settings {
     pub google_tts_voice: String,
     /// Google TTS speaking rate
     pub google_tts_speed: f64,
+
+    // === Interview Mode (unified) ===
+    /// Whether Interview Mode is enabled
+    pub interview_enabled: bool,
+    /// "api" | "webview"
+    pub interview_mode: String,
+
+    // ─── Common ───
+    /// User's CV / background, sent as context to LLM
+    pub interview_cv_context: String,
+    /// Target role / interview context
+    pub interview_role_context: String,
+    /// "" = same as target_language; otherwise ISO 639-1 code
+    pub interview_answer_language: String,
+    /// Min chars in detected question before triggering
+    pub interview_min_question_chars: u32,
+    /// Debounce delay before firing suggestion
+    pub interview_debounce_ms: u64,
+    /// "original" | "translation"
+    pub interview_trigger_source: String,
+
+    // ─── API mode ───
+    /// "openai" | "openrouter" | "chiasegpu" | "anthropic" | "gemini" | "custom"
+    pub interview_api_preset: String,
+    /// Base URL (auto-fill from preset, editable)
+    pub interview_api_base_url: String,
+    /// Provider API key
+    pub interview_api_key: String,
+    /// "bearer" | "x-api-key" | "url-param"
+    pub interview_api_auth_style: String,
+    /// Model identifier (e.g. "gpt-4o-mini", "claude-3-5-sonnet-20241022")
+    pub interview_api_model: String,
+    /// Schema interpretation: "openai" | "anthropic" | "gemini"
+    pub interview_api_schema: String,
+
+    // ─── Webview mode ───
+    /// "chatgpt" | "claude" | "gemini"
+    pub interview_webview_provider: String,
+    /// Cached state — whether webview has a logged-in session
+    pub interview_webview_signed_in: bool,
+    /// "fresh" | "same_chat" | "system_prompt"
+    pub interview_chat_strategy: String,
+    /// "always_hidden" | "show_on_first_question" | "always_visible"
+    pub interview_webview_visibility: String,
+    /// User explicitly accepted ToS warning
+    pub interview_webview_tos_accepted: bool,
 }
 
 impl Default for Settings {
@@ -90,6 +136,27 @@ impl Default for Settings {
             google_tts_api_key: String::new(),
             google_tts_voice: "vi-VN-Chirp3-HD-Aoede".to_string(),
             google_tts_speed: 1.0,
+
+            // === Interview Mode ===
+            interview_enabled: false,
+            interview_mode: "api".to_string(),
+            interview_cv_context: String::new(),
+            interview_role_context: String::new(),
+            interview_answer_language: String::new(),
+            interview_min_question_chars: 8,
+            interview_debounce_ms: 1500,
+            interview_trigger_source: "original".to_string(),
+            interview_api_preset: "openai".to_string(),
+            interview_api_base_url: "https://api.openai.com/v1".to_string(),
+            interview_api_key: String::new(),
+            interview_api_auth_style: "bearer".to_string(),
+            interview_api_model: "gpt-4o-mini".to_string(),
+            interview_api_schema: "openai".to_string(),
+            interview_webview_provider: "chatgpt".to_string(),
+            interview_webview_signed_in: false,
+            interview_chat_strategy: "system_prompt".to_string(),
+            interview_webview_visibility: "always_hidden".to_string(),
+            interview_webview_tos_accepted: false,
         }
     }
 }

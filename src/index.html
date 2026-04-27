@@ -77,6 +77,13 @@
           <span class="tts-label">TTS</span>
         </button>
 
+        <button id="btn-interview" class="tts-action-btn" title="Interview Mode (⌘I)">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+          </svg>
+          <span class="tts-label">Interview</span>
+        </button>
+
         <div class="toolbar-group">
           <button id="btn-clear" class="icon-btn" title="Clear transcript">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -173,6 +180,51 @@
       </button>
     </div>
 
+    <!-- Interview Mode panel (overlay, floats above transcript) -->
+    <aside id="interview-panel" class="interview-panel" data-interview-state>
+      <header class="interview-panel-header">
+        <span class="interview-panel-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+          </svg>
+          Interview
+        </span>
+        <span class="interview-badge" data-interview-badge></span>
+        <button class="icon-btn small" data-interview-retry title="Retry last question (⌘ Shift I)">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="23 4 23 10 17 10" />
+            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+          </svg>
+        </button>
+        <button class="icon-btn small" data-interview-close title="Hide panel">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      </header>
+
+      <div class="interview-panel-body">
+        <div class="interview-question" data-interview-question></div>
+        <p class="interview-message" data-interview-message>Listening for questions…</p>
+
+        <div class="interview-section">
+          <h4>Talking points</h4>
+          <ul class="interview-points" data-interview-points></ul>
+        </div>
+
+        <div class="interview-section">
+          <h4>Sample answer</h4>
+          <p class="interview-sample" data-interview-sample></p>
+        </div>
+
+        <div class="interview-section">
+          <h4>Follow-up questions</h4>
+          <ul class="interview-follow" data-interview-follow></ul>
+        </div>
+      </div>
+    </aside>
+
     <!-- Resize Handle -->
     <div id="resize-handle"></div>
   </div>
@@ -202,6 +254,7 @@
         <button class="settings-tab active" data-tab="tab-translation">Translation</button>
         <button class="settings-tab" data-tab="tab-display">Display</button>
         <button class="settings-tab" data-tab="tab-tts">TTS</button>
+        <button class="settings-tab" data-tab="tab-interview">Interview</button>
         <button class="settings-tab" data-tab="tab-about">About</button>
       </div>
 
@@ -609,6 +662,137 @@
               <option value="onwK4e9ZLuTAKqWW03F9">Daniel — Male</option>
               <option value="pNInz6obpgDQGcFmaJgB">Adam — Male</option>
             </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: Interview -->
+      <div class="settings-tab-content" id="tab-interview">
+        <div class="settings-section">
+          <label class="checkbox-row">
+            <input type="checkbox" id="interview-enabled" />
+            <span class="field-label">Enable Interview Mode</span>
+          </label>
+          <p class="hint">When enabled, the app detects questions in the transcript and suggests answers in a side panel. Toggle anytime with <kbd>⌘ I</kbd>.</p>
+        </div>
+
+        <div class="settings-section">
+          <span class="field-label">Mode</span>
+          <div class="radio-row">
+            <label><input type="radio" name="interview-mode" value="api" /> API (recommended — fast, reliable)</label>
+            <label><input type="radio" name="interview-mode" value="webview" /> Webview (use existing web subscription)</label>
+          </div>
+          <p class="hint" id="interview-mode-hint-api" style="display:none">Calls a REST LLM API. Latency ~1–3s. Requires an API key.</p>
+          <p class="hint" id="interview-mode-hint-webview" style="display:none">Automates ChatGPT / Claude / Gemini web UI in a hidden window. Latency ~5–10s. Available in PR #3.</p>
+        </div>
+
+        <!-- API mode block -->
+        <div class="settings-section" id="interview-api-block">
+          <span class="field-label">Provider preset</span>
+          <select id="interview-api-preset">
+            <option value="openai">OpenAI</option>
+            <option value="openrouter">OpenRouter</option>
+            <option value="chiasegpu">ChiaseGPU</option>
+            <option value="anthropic">Anthropic Claude</option>
+            <option value="gemini">Google Gemini</option>
+            <option value="custom">Custom (OpenAI-compatible)</option>
+          </select>
+          <p class="hint" id="interview-preset-hint"></p>
+
+          <div style="margin-top:10px;">
+            <span class="field-label">Base URL</span>
+            <input type="text" id="interview-api-base-url" placeholder="https://api.openai.com/v1" />
+          </div>
+
+          <div style="margin-top:10px;">
+            <span class="field-label">API Key</span>
+            <div class="input-group">
+              <input type="password" id="interview-api-key" placeholder="Enter your provider API key…" autocomplete="off" />
+              <button id="btn-toggle-interview-key" class="icon-btn small" title="Show/Hide" type="button">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" />
+                </svg>
+              </button>
+            </div>
+            <p class="hint">Stored locally in settings.json. Not transmitted anywhere except to the provider you choose.</p>
+          </div>
+
+          <div style="margin-top:10px;">
+            <span class="field-label">Model</span>
+            <input type="text" id="interview-api-model" placeholder="gpt-4o-mini" />
+          </div>
+
+          <div style="margin-top:12px;">
+            <button id="btn-interview-test" class="primary-btn" type="button">Test connection</button>
+            <span id="interview-test-result" class="hint" style="margin-left:10px;"></span>
+          </div>
+        </div>
+
+        <!-- Webview mode block -->
+        <div class="settings-section" id="interview-webview-block" style="display:none;">
+          <span class="field-label">Provider</span>
+          <select id="interview-webview-provider">
+            <option value="chatgpt">ChatGPT</option>
+            <option value="claude">Claude</option>
+            <option value="gemini">Gemini</option>
+          </select>
+
+          <div style="margin-top:10px;">
+            <span class="field-label">Status</span>
+            <span id="interview-webview-status" class="hint">Available in PR #3.</span>
+          </div>
+
+          <label class="checkbox-row" style="margin-top:12px;">
+            <input type="checkbox" id="interview-webview-tos" />
+            <span>I understand this may violate the provider's ToS and could result in account suspension.</span>
+          </label>
+        </div>
+
+        <!-- Personalization (both modes) -->
+        <div class="settings-section">
+          <span class="field-label">Your background / CV</span>
+          <textarea id="interview-cv-context" rows="4" placeholder="Briefly describe your skills, experience, and what role you're interviewing for…"></textarea>
+        </div>
+
+        <div class="settings-section">
+          <span class="field-label">Target role / context</span>
+          <textarea id="interview-role-context" rows="3" placeholder="e.g. Senior Backend Engineer at Acme — heavy on Rust, distributed systems, on-call experience"></textarea>
+        </div>
+
+        <div class="settings-section">
+          <span class="field-label">Answer language</span>
+          <select id="interview-answer-language">
+            <option value="">Same as translation target</option>
+            <option value="en">English</option>
+            <option value="vi">Vietnamese</option>
+            <option value="ja">Japanese</option>
+            <option value="ko">Korean</option>
+            <option value="zh">Chinese</option>
+            <option value="fr">French</option>
+            <option value="de">German</option>
+            <option value="es">Spanish</option>
+          </select>
+        </div>
+
+        <!-- Detection -->
+        <div class="settings-section">
+          <span class="field-label">Detection</span>
+          <div class="field-row">
+            <div class="field">
+              <label class="hint" for="interview-min-chars">Min question length</label>
+              <input type="number" id="interview-min-chars" min="3" max="80" step="1" />
+            </div>
+            <div class="field">
+              <label class="hint" for="interview-debounce">Debounce (ms)</label>
+              <input type="number" id="interview-debounce" min="200" max="5000" step="100" />
+            </div>
+            <div class="field">
+              <label class="hint" for="interview-trigger-source">Trigger on</label>
+              <select id="interview-trigger-source">
+                <option value="original">Original text</option>
+                <option value="translation">Translation</option>
+              </select>
+            </div>
           </div>
         </div>
       </div>
