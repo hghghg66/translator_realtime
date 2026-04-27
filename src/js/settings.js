@@ -46,7 +46,7 @@ const DEFAULT_SETTINGS = {
   interview_api_schema: 'openai',
   interview_webview_provider: 'chatgpt',
   interview_webview_signed_in: false,
-  interview_chat_strategy: 'system_prompt',
+  interview_chat_strategy: 'fresh',
   interview_webview_visibility: 'always_hidden',
   interview_webview_tos_accepted: false,
 };

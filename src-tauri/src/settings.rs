@@ -154,7 +154,7 @@ impl Default for Settings {
             interview_api_schema: "openai".to_string(),
             interview_webview_provider: "chatgpt".to_string(),
             interview_webview_signed_in: false,
-            interview_chat_strategy: "system_prompt".to_string(),
+            interview_chat_strategy: "fresh".to_string(),
             interview_webview_visibility: "always_hidden".to_string(),
             interview_webview_tos_accepted: false,
         }

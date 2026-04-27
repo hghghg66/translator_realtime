@@ -739,12 +739,35 @@
 
           <div style="margin-top:10px;">
             <span class="field-label">Status</span>
-            <span id="interview-webview-status" class="hint">Available in PR #3.</span>
+            <span id="interview-webview-status" class="hint">Click "Sign in…" to verify.</span>
+          </div>
+
+          <div style="margin-top:8px;">
+            <button id="btn-interview-webview-signin" class="primary-btn" type="button">Sign in…</button>
+            <button id="btn-interview-webview-check" class="secondary-btn" type="button" style="margin-left:6px;">Re-check status</button>
+          </div>
+
+          <div style="margin-top:12px;">
+            <span class="field-label">Chat strategy</span>
+            <select id="interview-webview-chat-strategy">
+              <option value="fresh">Fresh chat each question (recommended)</option>
+              <option value="same_chat">Same chat (re-use context)</option>
+              <option value="system_prompt">System prompt only (advanced)</option>
+            </select>
+          </div>
+
+          <div style="margin-top:10px;">
+            <span class="field-label">Window visibility</span>
+            <select id="interview-webview-visibility">
+              <option value="always_hidden">Always hidden</option>
+              <option value="show_on_first_question">Show on first question</option>
+              <option value="always_visible">Always visible</option>
+            </select>
           </div>
 
           <label class="checkbox-row" style="margin-top:12px;">
             <input type="checkbox" id="interview-webview-tos" />
-            <span>I understand this may violate the provider's ToS and could result in account suspension.</span>
+            <span>I understand automating the chat web UI may violate the provider's ToS and could result in account suspension. I take responsibility for using this in low-stakes settings only.</span>
           </label>
         </div>
 
