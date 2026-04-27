@@ -2410,6 +2410,7 @@ dependencies = [
 name = "my-translator"
 version = "0.5.3"
 dependencies = [
+ "async-trait",
  "base64 0.22.1",
  "chrono",
  "cpal",
