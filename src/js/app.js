@@ -415,6 +415,33 @@ class App {
             }
         });
 
+        // Webview mode (PR #3): Sign in… opens the provider in a visible window
+        document.getElementById('btn-interview-webview-signin')?.addEventListener('click', async () => {
+            const provider = document.getElementById('interview-webview-provider')?.value || 'chatgpt';
+            const status = document.getElementById('interview-webview-status');
+            if (status) status.textContent = `Opening ${provider}…`;
+            try {
+                await invoke('interview_open_webview_login', { provider });
+                if (status) status.textContent = 'Window closed. Re-check status to confirm sign-in.';
+            } catch (err) {
+                if (status) status.textContent = `Error: ${err}`;
+            }
+        });
+
+        document.getElementById('btn-interview-webview-check')?.addEventListener('click', async () => {
+            const provider = document.getElementById('interview-webview-provider')?.value || 'chatgpt';
+            const status = document.getElementById('interview-webview-status');
+            if (status) status.textContent = 'Checking…';
+            try {
+                const signedIn = await invoke('interview_check_webview_login', { provider });
+                if (status) status.textContent = signedIn
+                    ? `Signed in to ${provider}.`
+                    : `Not signed in to ${provider}. Click "Sign in…".`;
+            } catch (err) {
+                if (status) status.textContent = `Error: ${err}`;
+            }
+        });
+
         // Add translation term row
         document.getElementById('btn-add-term')?.addEventListener('click', () => {
             this._addTermRow('', '');
@@ -713,6 +740,8 @@ class App {
         this._updateInterviewPresetHint(s.interview_api_preset || 'openai');
 
         set('interview-webview-provider', s.interview_webview_provider || 'chatgpt');
+        set('interview-webview-chat-strategy', s.interview_chat_strategy || 'fresh');
+        set('interview-webview-visibility', s.interview_webview_visibility || 'always_hidden');
         setChecked('interview-webview-tos', s.interview_webview_tos_accepted);
 
         set('interview-cv-context', s.interview_cv_context || '');
@@ -829,6 +858,8 @@ class App {
         settings.interview_api_auth_style = presetMeta.auth_style;
         settings.interview_api_schema = presetMeta.schema;
         settings.interview_webview_provider = document.getElementById('interview-webview-provider')?.value || 'chatgpt';
+        settings.interview_chat_strategy = document.getElementById('interview-webview-chat-strategy')?.value || 'fresh';
+        settings.interview_webview_visibility = document.getElementById('interview-webview-visibility')?.value || 'always_hidden';
         settings.interview_webview_tos_accepted = !!document.getElementById('interview-webview-tos')?.checked;
         settings.interview_cv_context = document.getElementById('interview-cv-context')?.value || '';
         settings.interview_role_context = document.getElementById('interview-role-context')?.value || '';

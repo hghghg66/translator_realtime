@@ -60,6 +60,9 @@ pub fn run() {
             commands::edge_tts::edge_tts_speak,
             commands::interview::interview_suggest,
             commands::interview::interview_test_connection,
+            commands::interview::interview_open_webview_login,
+            commands::interview::interview_check_webview_login,
+            commands::interview::interview_set_webview_visible,
             get_platform_info,
         ])
         .run(tauri::generate_context!())

@@ -16,6 +16,11 @@ pub struct ProviderConfig {
     pub cv_context: String,
     pub role_context: String,
     pub answer_language: String,
+    // ─── Webview-mode-only fields (PR #3) ───
+    pub webview_provider: String,
+    pub webview_visibility: String,
+    pub webview_chat_strategy: String,
+    pub webview_tos_accepted: bool,
 }
 
 #[async_trait]
