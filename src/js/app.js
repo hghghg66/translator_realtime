@@ -11,6 +11,17 @@ import { googleTTS } from './google-tts.js';
 import { edgeTTSRust } from './edge-tts.js';
 import { audioPlayer } from './audio-player.js';
 import { updater } from './updater.js';
+import { interviewMode } from './interview.js';
+
+/** Provider preset metadata used to auto-fill base URL / hint copy. */
+const INTERVIEW_PRESETS = {
+    openai:     { base_url: 'https://api.openai.com/v1',                       schema: 'openai',    auth_style: 'bearer',    model: 'gpt-4o-mini',                hint: 'OpenAI Chat Completions. Get a key at platform.openai.com.' },
+    openrouter: { base_url: 'https://openrouter.ai/api/v1',                    schema: 'openai',    auth_style: 'bearer',    model: 'openrouter/auto',            hint: 'OpenRouter — multi-model gateway. Get a key at openrouter.ai/keys.' },
+    chiasegpu:  { base_url: '',                                                 schema: 'openai',    auth_style: 'bearer',    model: '',                           hint: 'ChiaseGPU is a Vietnamese P2P marketplace. Paste the endpoint URL shown on chiasegpu.vn → LLM Marketplace → Subscriptions → Thông tin API.' },
+    anthropic:  { base_url: 'https://api.anthropic.com/v1',                    schema: 'anthropic', auth_style: 'x-api-key', model: 'claude-3-5-sonnet-20241022', hint: 'Anthropic Messages API. Real provider lands in PR #2.' },
+    gemini:     { base_url: 'https://generativelanguage.googleapis.com/v1beta', schema: 'gemini',    auth_style: 'url-param', model: 'gemini-1.5-flash',           hint: 'Google Gemini API. Real provider lands in PR #2.' },
+    custom:     { base_url: '',                                                 schema: 'openai',    auth_style: 'bearer',    model: '',                           hint: 'Any OpenAI-compatible endpoint. Paste full base URL ending in /v1.' },
+};
 
 const { invoke } = window.__TAURI__.core;
 const { getCurrentWindow } = window.__TAURI__.window;
@@ -73,6 +84,9 @@ class App {
                 this._showToast(error, 'error');
             };
         }
+
+        // Init Interview Mode (heuristic detection + suggestion panel)
+        interviewMode.init(settingsManager);
 
         // Window position restore disabled — causes issues on Retina displays
         // await this._restoreWindowPosition();
@@ -370,6 +384,37 @@ class App {
             if (label) label.textContent = parseFloat(e.target.value).toFixed(1) + 'x';
         });
 
+        // ── Interview Mode wiring ──
+        document.querySelectorAll('input[name="interview-mode"]').forEach((radio) => {
+            radio.addEventListener('change', (e) => {
+                if (e.target.checked) this._updateInterviewModeUI(e.target.value);
+            });
+        });
+
+        document.getElementById('interview-api-preset')?.addEventListener('change', (e) => {
+            this._onInterviewPresetChange(e.target.value);
+        });
+
+        document.getElementById('btn-toggle-interview-key')?.addEventListener('click', () => {
+            const input = document.getElementById('interview-api-key');
+            if (input) input.type = input.type === 'password' ? 'text' : 'password';
+        });
+
+        document.getElementById('btn-interview-test')?.addEventListener('click', async () => {
+            const result = document.getElementById('interview-test-result');
+            if (!result) return;
+            result.className = 'hint';
+            result.textContent = 'Testing…';
+            try {
+                const res = await invoke('interview_test_connection');
+                result.textContent = res.message || (res.ok ? 'OK' : 'Failed');
+                result.classList.add(res.ok ? 'ok' : 'fail');
+            } catch (err) {
+                result.textContent = `Error: ${err}`;
+                result.classList.add('fail');
+            }
+        });
+
         // Add translation term row
         document.getElementById('btn-add-term')?.addEventListener('click', () => {
             this._addTermRow('', '');
@@ -388,11 +433,13 @@ class App {
         // Wire Soniox callbacks
         sonioxClient.onOriginal = (text, speaker, language) => {
             this.transcriptUI.addOriginal(text, speaker, language);
+            interviewMode.feedText({ original: text });
         };
 
         sonioxClient.onTranslation = (text) => {
             this.transcriptUI.addTranslation(text);
             this._speakIfEnabled(text);
+            interviewMode.feedText({ translation: text });
         };
 
         sonioxClient.onProvisional = (text, speaker, language) => {
@@ -509,6 +556,17 @@ class App {
             if ((e.metaKey || e.ctrlKey) && e.key === 'd') {
                 e.preventDefault();
                 this._toggleCompact();
+            }
+
+            // Cmd/Ctrl + I: Toggle Interview Mode
+            // Cmd/Ctrl + Shift + I: Retry last question
+            if ((e.metaKey || e.ctrlKey) && (e.key === 'i' || e.key === 'I')) {
+                e.preventDefault();
+                if (e.shiftKey) {
+                    interviewMode.retryLast();
+                } else {
+                    interviewMode.toggleEnabled();
+                }
             }
         });
     }
@@ -632,6 +690,66 @@ class App {
             providerSelect.value = s.tts_provider || 'edge';
             this._updateTTSProviderUI(providerSelect.value);
         }
+
+        // ── Interview Mode ──
+        this._populateInterviewForm(s);
+    }
+
+    _populateInterviewForm(s) {
+        const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+        const setChecked = (id, val) => { const el = document.getElementById(id); if (el) el.checked = !!val; };
+
+        setChecked('interview-enabled', s.interview_enabled);
+
+        const mode = s.interview_mode || 'api';
+        const modeRadio = document.querySelector(`input[name="interview-mode"][value="${mode}"]`);
+        if (modeRadio) modeRadio.checked = true;
+        this._updateInterviewModeUI(mode);
+
+        set('interview-api-preset', s.interview_api_preset || 'openai');
+        set('interview-api-base-url', s.interview_api_base_url || '');
+        set('interview-api-key', s.interview_api_key || '');
+        set('interview-api-model', s.interview_api_model || '');
+        this._updateInterviewPresetHint(s.interview_api_preset || 'openai');
+
+        set('interview-webview-provider', s.interview_webview_provider || 'chatgpt');
+        setChecked('interview-webview-tos', s.interview_webview_tos_accepted);
+
+        set('interview-cv-context', s.interview_cv_context || '');
+        set('interview-role-context', s.interview_role_context || '');
+        set('interview-answer-language', s.interview_answer_language || '');
+
+        set('interview-min-chars', s.interview_min_question_chars ?? 8);
+        set('interview-debounce', s.interview_debounce_ms ?? 1500);
+        set('interview-trigger-source', s.interview_trigger_source || 'original');
+    }
+
+    _updateInterviewModeUI(mode) {
+        const apiBlock = document.getElementById('interview-api-block');
+        const webviewBlock = document.getElementById('interview-webview-block');
+        const apiHint = document.getElementById('interview-mode-hint-api');
+        const webviewHint = document.getElementById('interview-mode-hint-webview');
+        const isApi = mode === 'api';
+        if (apiBlock) apiBlock.style.display = isApi ? '' : 'none';
+        if (webviewBlock) webviewBlock.style.display = isApi ? 'none' : '';
+        if (apiHint) apiHint.style.display = isApi ? '' : 'none';
+        if (webviewHint) webviewHint.style.display = isApi ? 'none' : '';
+    }
+
+    _updateInterviewPresetHint(preset) {
+        const meta = INTERVIEW_PRESETS[preset];
+        const hintEl = document.getElementById('interview-preset-hint');
+        if (hintEl && meta) hintEl.textContent = meta.hint;
+    }
+
+    _onInterviewPresetChange(preset) {
+        const meta = INTERVIEW_PRESETS[preset];
+        if (!meta) return;
+        const baseUrl = document.getElementById('interview-api-base-url');
+        const model = document.getElementById('interview-api-model');
+        if (baseUrl) baseUrl.value = meta.base_url;
+        if (model) model.value = meta.model;
+        this._updateInterviewPresetHint(preset);
     }
 
     async _saveSettingsFromForm() {
@@ -697,6 +815,27 @@ class App {
         settings.google_tts_voice = document.getElementById('select-google-voice')?.value || 'vi-VN-Chirp3-HD-Aoede';
         settings.google_tts_speed = parseFloat(document.getElementById('range-google-speed')?.value || 1.0);
         settings.tts_enabled = false;
+
+        // ── Interview Mode ──
+        const presetEl = document.getElementById('interview-api-preset');
+        const presetKey = presetEl?.value || 'openai';
+        const presetMeta = INTERVIEW_PRESETS[presetKey] || INTERVIEW_PRESETS.openai;
+        settings.interview_enabled = !!document.getElementById('interview-enabled')?.checked;
+        settings.interview_mode = document.querySelector('input[name="interview-mode"]:checked')?.value || 'api';
+        settings.interview_api_preset = presetKey;
+        settings.interview_api_base_url = document.getElementById('interview-api-base-url')?.value.trim() || '';
+        settings.interview_api_key = document.getElementById('interview-api-key')?.value.trim() || '';
+        settings.interview_api_model = document.getElementById('interview-api-model')?.value.trim() || '';
+        settings.interview_api_auth_style = presetMeta.auth_style;
+        settings.interview_api_schema = presetMeta.schema;
+        settings.interview_webview_provider = document.getElementById('interview-webview-provider')?.value || 'chatgpt';
+        settings.interview_webview_tos_accepted = !!document.getElementById('interview-webview-tos')?.checked;
+        settings.interview_cv_context = document.getElementById('interview-cv-context')?.value || '';
+        settings.interview_role_context = document.getElementById('interview-role-context')?.value || '';
+        settings.interview_answer_language = document.getElementById('interview-answer-language')?.value || '';
+        settings.interview_min_question_chars = parseInt(document.getElementById('interview-min-chars')?.value || 8, 10);
+        settings.interview_debounce_ms = parseInt(document.getElementById('interview-debounce')?.value || 1500, 10);
+        settings.interview_trigger_source = document.getElementById('interview-trigger-source')?.value || 'original';
 
         try {
             await settingsManager.save(settings);
