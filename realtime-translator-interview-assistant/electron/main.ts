@@ -1,6 +1,5 @@
 import { app, BrowserWindow, ipcMain, shell } from 'electron';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import {
   IPC,
   GptAnalyzeRequest,
@@ -17,8 +16,6 @@ import {
 import { loadHistory, appendHistory, clearHistory } from './store/history.js';
 import { SonioxClient, testSonioxConnection } from './soniox/SonioxClient.js';
 import { OpenAIClient, testOpenAIConnection } from './openai/OpenAIClient.js';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 let mainWindow: BrowserWindow | null = null;
 let sonioxClient: SonioxClient | null = null;
@@ -47,7 +44,8 @@ function createWindow(): void {
     minHeight: 600,
     backgroundColor: '#0f1115',
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: path.join(__dirname, 'preload.cjs'),
+      webSecurity: true,
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,

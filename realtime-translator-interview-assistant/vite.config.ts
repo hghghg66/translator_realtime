@@ -20,6 +20,10 @@ export default defineConfig({
             outDir: 'dist-electron',
             rollupOptions: {
               external: ['electron', 'electron-store', 'ws'],
+              output: {
+                format: 'cjs',
+                entryFileNames: '[name].cjs',
+              },
             },
           },
         },
@@ -34,6 +38,10 @@ export default defineConfig({
             outDir: 'dist-electron',
             rollupOptions: {
               external: ['electron'],
+              output: {
+                format: 'cjs',
+                entryFileNames: '[name].cjs',
+              },
             },
           },
         },

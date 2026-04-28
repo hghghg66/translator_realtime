@@ -2,9 +2,8 @@
   "name": "realtime-translator-interview-assistant",
   "version": "0.1.0",
   "description": "Real-time Translator & Interview Assistant — Electron desktop app powered by Soniox (STT + translation) and OpenAI (interview answer generation).",
-  "main": "dist-electron/main.js",
+  "main": "dist-electron/main.cjs",
   "private": true,
-  "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.main.json --noEmit && vite build && electron-builder --win --x64 --dir",
