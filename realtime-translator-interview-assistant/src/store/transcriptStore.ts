@@ -22,17 +22,20 @@ export const useTranscriptStore = create<TranscriptStore>((set) => ({
   status: 'idle',
   error: null,
   appendOriginal(text, isFinal) {
+    // Soniox sends the full provisional snapshot in each batch, so non-final
+    // text REPLACES the buffer (it does not accumulate). Final text is
+    // appended to the persisted history and the provisional buffer is reset.
     set((s) =>
       isFinal
         ? { originalFinal: s.originalFinal + text, originalProvisional: '' }
-        : { originalProvisional: s.originalProvisional + text },
+        : { originalProvisional: text },
     );
   },
   appendTranslation(text, isFinal) {
     set((s) =>
       isFinal
         ? { translationFinal: s.translationFinal + text, translationProvisional: '' }
-        : { translationProvisional: s.translationProvisional + text },
+        : { translationProvisional: text },
     );
   },
   setStatus: (s) => set({ status: s }),

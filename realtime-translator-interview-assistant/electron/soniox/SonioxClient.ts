@@ -110,6 +110,12 @@ export class SonioxClient extends EventEmitter {
     if (!cfg) return;
 
     this.emit('status', 'connecting');
+
+    // Track the previous socket so we can close it cleanly *after* the new
+    // one is up (graceful session reset / make-before-break).
+    const previous = this.ws;
+    let supersededByThisOpen = false;
+
     let ws: WebSocket;
     try {
       ws = new WebSocket(this.endpoint());
@@ -149,9 +155,26 @@ export class SonioxClient extends EventEmitter {
       this.emit('status', 'connected');
       this.startSessionTimer();
       this.startKeepalive();
+
+      // Close the previous socket gracefully now that the new one is up.
+      // Mark `supersededByThisOpen` so the previous socket's close handler
+      // does NOT trigger a spurious reconnect — we initiated this swap.
+      if (previous && previous !== ws) {
+        supersededByThisOpen = true;
+        try {
+          if (previous.readyState === WebSocket.OPEN) {
+            previous.close(1000, 'session reset');
+          }
+        } catch {
+          // ignore
+        }
+      }
     });
 
     ws.on('message', (data) => {
+      // Ignore messages from sockets that have been superseded by a session
+      // reset — only the active socket may push events to the renderer.
+      if (this.ws !== null && this.ws !== ws) return;
       try {
         const text = data.toString();
         const msg = JSON.parse(text) as SonioxResponse;
@@ -171,10 +194,16 @@ export class SonioxClient extends EventEmitter {
     });
 
     ws.on('close', (code, reason) => {
+      // If this socket was retired because a newer one took over (graceful
+      // 3-min session reset), suppress reconnect logic — the new socket is
+      // already healthy.
+      if (this.ws !== ws) {
+        return;
+      }
       this.connected = false;
       this.clearTimers();
       this.emit('status', 'closed');
-      if (this.intentionalClose) return;
+      if (this.intentionalClose || supersededByThisOpen) return;
       if (this.reconnectAttempts >= MAX_RECONNECT) {
         this.emit('error', `Disconnected (code ${code}) — gave up after ${MAX_RECONNECT} retries.`);
         return;

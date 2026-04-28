@@ -9,13 +9,22 @@ import { HistoryPanel } from './components/HistoryPanel';
 type Tab = 'translator' | 'interview' | 'combined' | 'settings' | 'history';
 
 export default function App() {
-  const { settings, loading, load, update } = useSettingsStore();
+  const { settings, loading, loadError, load, update } = useSettingsStore();
   const [tab, setTab] = useState<Tab>('translator');
 
   useEffect(() => {
     void load();
   }, [load]);
 
+  if (loadError) {
+    return (
+      <div style={{ padding: 24, color: 'var(--danger)' }}>
+        <h2>Startup error</h2>
+        <pre style={{ whiteSpace: 'pre-wrap' }}>{loadError}</pre>
+        <button onClick={() => void load()}>Retry</button>
+      </div>
+    );
+  }
   if (loading || !settings) {
     return <div style={{ padding: 16 }}>Loading…</div>;
   }

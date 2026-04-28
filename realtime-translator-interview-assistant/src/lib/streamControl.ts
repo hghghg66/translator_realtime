@@ -19,9 +19,20 @@ export async function acquireStream(): Promise<void> {
   }
   starting = (async () => {
     await window.api.sonioxStart();
-    mic = await startMicCapture((chunk) => {
-      window.api.sonioxSendChunk(chunk);
-    });
+    try {
+      mic = await startMicCapture((chunk) => {
+        window.api.sonioxSendChunk(chunk);
+      });
+    } catch (err) {
+      // Mic acquisition failed (permission denied, no device, etc).
+      // Tear down the Soniox connection we just opened so we don't leak it.
+      try {
+        await window.api.sonioxStop();
+      } catch {
+        // ignore
+      }
+      throw err;
+    }
   })();
   try {
     await starting;
