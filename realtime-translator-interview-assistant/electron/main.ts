@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, session, shell } from 'electron';
 import path from 'node:path';
 import {
   IPC,
@@ -34,6 +34,22 @@ let openaiClient: OpenAIClient | null = null;
 function getOpenAI(): OpenAIClient {
   if (!openaiClient) openaiClient = buildOpenAIClient();
   return openaiClient;
+}
+function refreshOpenAIConfig(): void {
+  // Update config on the existing client so the in-memory cooldown timestamp
+  // is preserved across settings saves (otherwise rebuilding the client would
+  // reset lastCallAt and let the renderer burn a GPT call right after a
+  // toggle change).
+  const s = getSettings();
+  const cfg = {
+    apiKey: getGptApiKey(),
+    baseUrl: s.gptApiBaseUrl,
+    model: s.gptModel,
+    temperature: s.gptTemperature,
+    maxTokens: s.gptMaxTokens,
+  };
+  if (openaiClient) openaiClient.update(cfg);
+  else openaiClient = new OpenAIClient(cfg);
 }
 
 function createWindow(): void {
@@ -94,8 +110,8 @@ function registerIpc(): void {
   ipcMain.handle(IPC.SETTINGS_GET, () => getPublicSettings());
   ipcMain.handle(IPC.SETTINGS_SET, (_e, patch: Partial<AppSettings>) => {
     const out = setSettings(patch);
-    // Rebuild OpenAI client with new params
-    openaiClient = buildOpenAIClient();
+    // Update OpenAI client config in place — preserves cooldown timestamp.
+    refreshOpenAIConfig();
     return out;
   });
 
@@ -196,6 +212,16 @@ function registerIpc(): void {
 }
 
 app.whenReady().then(() => {
+  // Grant microphone permission requests from the renderer. Without an
+  // explicit handler, some Electron / OS combinations silently deny mic
+  // access when getUserMedia() is invoked, breaking Translator/Interview/
+  // Combined modes.
+  session.defaultSession.setPermissionRequestHandler((_wc, permission, callback) => {
+    if (permission === 'media') return callback(true);
+    return callback(false);
+  });
+  session.defaultSession.setPermissionCheckHandler((_wc, permission) => permission === 'media');
+
   registerIpc();
   createWindow();
 

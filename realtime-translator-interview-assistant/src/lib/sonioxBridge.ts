@@ -29,6 +29,13 @@ export function initSonioxBridge(): void {
   });
   window.api.onSonioxStatus((s) => {
     useTranscriptStore.getState().setStatus(s);
+    // When the active socket goes idle (user pressed Stop), drop any
+    // partially-buffered final tokens so the next session does not flush
+    // stale text from the previous session into onSentence listeners.
+    if (s === 'idle') {
+      pendingOriginal = '';
+      pendingTranslation = '';
+    }
   });
   window.api.onSonioxError((msg) => {
     useTranscriptStore.getState().setError(msg);
