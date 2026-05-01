@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranscriptStore } from '../store/transcriptStore';
 import { TranscriptView } from './TranscriptView';
 import { acquireStream, releaseStream } from '../lib/streamControl';
@@ -10,13 +10,17 @@ export function TranslatorPanel() {
   const settings = useSettingsStore((s) => s.settings);
   const [running, setRunning] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  // Mirror `running` in a ref so the unmount cleanup below sees the latest
+  // value. The cleanup closure captures whatever `running` was when the
+  // mount-only effect ran (always `false`), so without a ref the mic +
+  // Soniox WebSocket leak when the user switches tabs while recording.
+  const runningRef = useRef(false);
 
   useEffect(() => {
     initSonioxBridge();
     return () => {
-      if (running) void releaseStream().then(() => setRunning(false));
+      if (runningRef.current) void releaseStream();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const start = async () => {
@@ -26,6 +30,7 @@ export function TranslatorPanel() {
     }
     try {
       await acquireStream();
+      runningRef.current = true;
       setRunning(true);
     } catch (err) {
       setToast(`Mic error: ${(err as Error).message}`);
@@ -33,6 +38,7 @@ export function TranslatorPanel() {
   };
   const stop = async () => {
     await releaseStream();
+    runningRef.current = false;
     setRunning(false);
   };
 

@@ -17,9 +17,30 @@ export function InterviewPanel({ embedded }: { embedded?: boolean }) {
   const [toast, setToast] = useState<string | null>(null);
   const debounceRef = useRef<number | null>(null);
   const candidateRef = useRef<{ q: string; vi: string } | null>(null);
+  // Track running in a ref so the mount-only cleanup below can release the
+  // stream on actual unmount without depending on a stale closure of
+  // `running` from the initial render.
+  const runningRef = useRef(false);
 
+  // Bridge init + stream lifecycle. Runs once per mount; the cleanup runs
+  // ONLY on real unmount, so toggling settings does not tear down the mic.
   useEffect(() => {
     initSonioxBridge();
+    return () => {
+      if (debounceRef.current) {
+        window.clearTimeout(debounceRef.current);
+        debounceRef.current = null;
+      }
+      if (!embedded && runningRef.current) {
+        void releaseStream();
+      }
+    };
+  }, [embedded]);
+
+  // Re-subscribe to onSentence whenever the detection-related settings
+  // change so the listener captures the latest values. This effect MUST
+  // NOT release the stream — only the mount-only effect above may do so.
+  useEffect(() => {
     const off = onSentence((sentence, sentenceVi) => {
       if (!settings?.autoDetectQuestion) return;
       const minLen = 12;
@@ -50,7 +71,6 @@ export function InterviewPanel({ embedded }: { embedded?: boolean }) {
     });
     return () => {
       off();
-      if (!embedded && running) void releaseStream().then(() => setRunning(false));
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings?.autoDetectQuestion, settings?.autoGenerateAnswer, settings?.avoidDuplicateQuestions, settings?.duplicateSimilarityThreshold, settings?.questionDebounceMs]);
@@ -62,6 +82,7 @@ export function InterviewPanel({ embedded }: { embedded?: boolean }) {
     }
     try {
       await acquireStream();
+      runningRef.current = true;
       setRunning(true);
     } catch (err) {
       setToast(`Mic error: ${(err as Error).message}`);
@@ -69,6 +90,7 @@ export function InterviewPanel({ embedded }: { embedded?: boolean }) {
   };
   const stop = async () => {
     await releaseStream();
+    runningRef.current = false;
     setRunning(false);
   };
 

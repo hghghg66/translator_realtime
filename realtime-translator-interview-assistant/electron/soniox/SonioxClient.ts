@@ -115,6 +115,11 @@ export class SonioxClient extends EventEmitter {
     // one is up (graceful session reset / make-before-break).
     const previous = this.ws;
     let supersededByThisOpen = false;
+    // Flips to true once this socket actually reaches the OPEN state and
+    // becomes the current `this.ws`. Used by the close handler to tell apart
+    // "active socket died" (handle normally) from "new socket failed before
+    // opening, previous one is still healthy" (do nothing).
+    let assignedAsCurrent = false;
 
     let ws: WebSocket;
     try {
@@ -150,6 +155,7 @@ export class SonioxClient extends EventEmitter {
       }
 
       this.ws = ws;
+      assignedAsCurrent = true;
       this.connected = true;
       this.reconnectAttempts = 0;
       this.emit('status', 'connected');
@@ -194,11 +200,20 @@ export class SonioxClient extends EventEmitter {
     });
 
     ws.on('close', (code, reason) => {
-      // If this socket was retired because a newer one took over (graceful
-      // 3-min session reset), suppress reconnect logic — the new socket is
-      // already healthy.
-      if (this.ws !== ws) {
-        return;
+      void reason;
+      if (assignedAsCurrent) {
+        // We were the active socket. If something newer has already replaced
+        // us (3-min session reset rolled forward to the next attempt while
+        // we were closing), suppress — the new one drives status now.
+        if (this.ws !== ws) return;
+        this.ws = null;
+      } else {
+        // We never reached OPEN. If a healthy `previous` is still active
+        // (session-reset attempt that fizzled out before opening), do not
+        // disturb its state. Otherwise (initial connect or restart from
+        // stop failed) fall through so the user sees `closed` and we kick
+        // off auto-retry instead of being stuck on `connecting`.
+        if (this.ws !== null) return;
       }
       this.connected = false;
       this.clearTimers();
@@ -213,7 +228,6 @@ export class SonioxClient extends EventEmitter {
       setTimeout(() => {
         if (!this.intentionalClose) this.openSocket();
       }, RECONNECT_DELAY_MS);
-      void reason;
     });
   }
 

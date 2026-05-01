@@ -21,9 +21,27 @@ export function CombinedPanel() {
   const [toast, setToast] = useState<string | null>(null);
   const debounceRef = useRef<number | null>(null);
   const candidateRef = useRef<{ q: string; vi: string } | null>(null);
+  // Mirror running so the mount-only cleanup releases the stream based on the
+  // latest value, not the initial render's stale closure.
+  const runningRef = useRef(false);
 
+  // Bridge init + stream lifecycle: runs once per mount. Cleanup releases on
+  // real unmount only, NOT on settings dep change (otherwise toggling
+  // auto-detect/auto-generate would silently kill the mic mid-session).
   useEffect(() => {
     initSonioxBridge();
+    return () => {
+      if (debounceRef.current) {
+        window.clearTimeout(debounceRef.current);
+        debounceRef.current = null;
+      }
+      if (runningRef.current) void releaseStream();
+    };
+  }, []);
+
+  // Re-subscribe to onSentence whenever detection-related settings change.
+  // MUST NOT release the stream here.
+  useEffect(() => {
     const off = onSentence((sentence, sentenceVi) => {
       if (!settings?.autoDetectQuestion) return;
       const det = detectQuestion(sentence, 12);
@@ -45,7 +63,6 @@ export function CombinedPanel() {
     });
     return () => {
       off();
-      if (running) void releaseStream().then(() => setRunning(false));
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings?.autoDetectQuestion, settings?.autoGenerateAnswer, settings?.questionDebounceMs, settings?.avoidDuplicateQuestions, settings?.duplicateSimilarityThreshold]);
@@ -57,6 +74,7 @@ export function CombinedPanel() {
     }
     try {
       await acquireStream();
+      runningRef.current = true;
       setRunning(true);
     } catch (err) {
       setToast(`Mic error: ${(err as Error).message}`);
@@ -64,6 +82,7 @@ export function CombinedPanel() {
   };
   const stop = async () => {
     await releaseStream();
+    runningRef.current = false;
     setRunning(false);
   };
 
